@@ -23,7 +23,6 @@ from typing import Optional
 
 import pandas as pd
 from dotenv import load_dotenv
-from supabase import create_client, Client
 
 load_dotenv()
 
@@ -57,7 +56,10 @@ class RawProjectRow:
     rera_registration_date: Optional[str]
 
 
-def get_client() -> Client:
+def get_client() -> "Client":
+    from supabase import create_client, Client  # imported lazily so dry-run
+    # mode (see main()) never requires the supabase package to be working.
+
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
@@ -115,6 +117,22 @@ def _get_or_create_builder(client: Client, builder_name: str) -> str:
     return created.data[0]["id"]
 
 
+def _clean(value):
+    """Convert pandas NaN (a float) into a proper JSON-safe None.
+
+    NaN is not valid JSON, so passing it straight through to Supabase's
+    client causes a serialization error that silently skips the whole row
+    — this is what was happening to every row missing price/carpet_area
+    data (which is all of the bulk Kaggle-sourced rows, see
+    convert_kaggle_rera.py).
+    """
+    if isinstance(value, (list, dict)):
+        return value
+    if pd.isna(value):
+        return None
+    return value
+
+
 def upsert_projects(client: Client, df: pd.DataFrame) -> dict:
     """Upsert projects by rera_certificate_no. Returns a summary dict."""
     inserted, updated, skipped = 0, 0, 0
@@ -128,13 +146,13 @@ def upsert_projects(client: Client, df: pd.DataFrame) -> dict:
                 "rera_certificate_no": str(row["rera_certificate_no"]).strip(),
                 "project_name": str(row["project_name"]).strip(),
                 "locality": str(row["locality"]).strip(),
-                "district": row.get("district"),
-                "bhk_config": row.get("bhk_config"),
-                "carpet_area_sqft": row.get("carpet_area_sqft"),
-                "price_inr": row.get("price_inr"),
-                "construction_stage": row.get("construction_stage"),
-                "possession_date": row.get("possession_date") or None,
-                "rera_registration_date": row.get("rera_registration_date") or None,
+                "district": _clean(row.get("district")),
+                "bhk_config": _clean(row.get("bhk_config")),
+                "carpet_area_sqft": _clean(row.get("carpet_area_sqft")),
+                "price_inr": _clean(row.get("price_inr")),
+                "construction_stage": _clean(row.get("construction_stage")),
+                "possession_date": _clean(row.get("possession_date")) or None,
+                "rera_registration_date": _clean(row.get("rera_registration_date")) or None,
                 "source": "manual_rera_export",
             }
 
@@ -161,10 +179,16 @@ def upsert_projects(client: Client, df: pd.DataFrame) -> dict:
     return {"inserted": inserted, "updated": updated, "skipped": skipped}
 
 
-def main(csv_path: str):
+def main(csv_path: str, dry_run: bool = False):
     print(f"[rera_ingest] loading {csv_path}")
     df = load_from_csv(csv_path)
     print(f"[rera_ingest] {len(df)} valid rows after cleaning")
+
+    if dry_run:
+        print("[rera_ingest] --dry-run: skipping Supabase write, showing summary only")
+        print(f"[rera_ingest] distinct builders: {df['builder_name'].nunique()}")
+        print(df.groupby("builder_name").size().sort_values(ascending=False).to_string())
+        return
 
     client = get_client()
     summary = upsert_projects(client, df)
@@ -172,7 +196,8 @@ def main(csv_path: str):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python rera_ingest.py <path_to_csv>")
+    if len(sys.argv) < 2:
+        print("Usage: python rera_ingest.py <path_to_csv> [--dry-run]")
         sys.exit(1)
-    main(sys.argv[1])
+    dry_run = "--dry-run" in sys.argv
+    main(sys.argv[1], dry_run=dry_run)
