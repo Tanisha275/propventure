@@ -1,0 +1,13 @@
+streamlit
+supabase
+google-genai
+lightgbm
+scikit-learn
+pandas
+numpy
+shap
+mlflow
+evidently
+python-dotenv
+requests
+beautifulsoup4

@@ -1,0 +1,6 @@
+rera_certificate_no,project_name,builder_name,locality,district,bhk_config,carpet_area_sqft,price_inr,construction_stage,possession_date,rera_registration_date
+P51700012345,Skyline Meridian,Skyline Developers,Mira Road East,Thane,2BHK,720,9400000,under_construction,2027-12-01,2024-03-15
+P51700012346,Regal Orchid Heights,Regal Group,Mira Road West,Thane,2BHK,680,8800000,under_construction,2027-12-01,2024-01-20
+P51700012347,Vista Greenview,Vista Constructions,Mira Road East,Thane,2BHK,705,9900000,under_construction,2026-06-01,2023-11-05
+P51700012348,Regal Palm Court,Regal Group,Mira Road West,Thane,2BHK,700,10800000,ready_to_move,2025-01-01,2022-08-10
+P51700012349,Regal Sunrise Enclave,Regal Group,Mira Road East,Thane,2BHK,715,11200000,ready_to_move,2024-06-01,2021-09-01
